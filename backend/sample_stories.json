@@ -1,0 +1,287 @@
+{
+  "stories": [
+    {
+      "id": 1,
+      "title": "The Wise Owl and the Young Fox",
+      "description": "A story about wisdom, patience, and learning from others",
+      "difficulty_level": "beginner",
+      "category": "wisdom",
+      "content": [
+        {
+          "scene_id": 1,
+          "text": "In a deep forest lived an old owl named Oliver, known throughout the woodland for his wisdom. One sunny morning, a young fox named Felix approached Oliver's tree, feeling frustrated and impatient.",
+          "choices": [
+            {
+              "id": "a",
+              "text": "Felix should ask Oliver for advice politely",
+              "consequence": "positive"
+            },
+            {
+              "id": "b",
+              "text": "Felix should demand immediate answers from Oliver",
+              "consequence": "negative"
+            },
+            {
+              "id": "c",
+              "text": "Felix should ignore Oliver and figure things out alone",
+              "consequence": "neutral"
+            }
+          ]
+        },
+        {
+          "scene_id": 2,
+          "text": "Oliver looked down at Felix with kind eyes. 'Young one,' he said softly, 'I can see you're troubled. What brings you to my tree today?' Felix took a deep breath and explained his problem: he couldn't find enough food for the coming winter and was worried about his family.",
+          "choices": [
+            {
+              "id": "a",
+              "text": "Oliver should share his knowledge about food storage",
+              "consequence": "positive"
+            },
+            {
+              "id": "b",
+              "text": "Oliver should tell Felix to ask other animals",
+              "consequence": "neutral"
+            },
+            {
+              "id": "c",
+              "text": "Oliver should ignore Felix's concerns",
+              "consequence": "negative"
+            }
+          ]
+        },
+        {
+          "scene_id": 3,
+          "text": "Oliver nodded thoughtfully. 'Patience and observation, young Felix. Watch how the squirrels prepare - they start early and store food in many places. The secret is not to rush, but to be consistent.' Felix listened carefully and thanked Oliver for his wisdom.",
+          "choices": []
+        }
+      ],
+      "comprehension_questions": [
+        {
+          "id": 1,
+          "question": "What was Felix's main problem?",
+          "type": "multiple_choice",
+          "options": [
+            "He was lost in the forest",
+            "He couldn't find enough food for winter",
+            "He was arguing with other animals",
+            "He was sick"
+          ],
+          "correct_answer": 1,
+          "explanation": "Felix was worried about finding enough food for his family for the coming winter."
+        },
+        {
+          "id": 2,
+          "question": "What advice did Oliver give to Felix?",
+          "type": "short_answer",
+          "sample_answers": [
+            "To be patient and observant",
+            "To watch how squirrels prepare for winter",
+            "To start early and be consistent"
+          ],
+          "explanation": "Oliver advised Felix to have patience, observe how squirrels prepare, and be consistent rather than rushing."
+        },
+        {
+          "id": 3,
+          "question": "What is the main lesson of this story?",
+          "type": "reflection",
+          "prompt": "Think about a time when someone wiser or more experienced gave you advice. How did their guidance help you?",
+          "themes": [
+            "wisdom",
+            "patience",
+            "learning_from_others",
+            "preparation"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Maya's First Day Challenge",
+      "description": "A story about courage, friendship, and overcoming social anxiety",
+      "difficulty_level": "intermediate",
+      "category": "social_skills",
+      "content": [
+        {
+          "scene_id": 1,
+          "text": "Maya stood at the entrance of her new school, her heart pounding. She had moved to this town just last week, and today was her first day at Lincoln Middle School. The building looked enormous, and students were chattering excitedly as they walked through the doors.",
+          "choices": [
+            {
+              "id": "a",
+              "text": "Maya should take a deep breath and walk in confidently",
+              "consequence": "positive"
+            },
+            {
+              "id": "b",
+              "text": "Maya should wait outside until the last minute",
+              "consequence": "neutral"
+            },
+            {
+              "id": "c",
+              "text": "Maya should consider going home and skipping the first day",
+              "consequence": "negative"
+            }
+          ]
+        },
+        {
+          "scene_id": 2,
+          "text": "Maya gathered her courage and walked through the front doors. In the hallway, she noticed a girl sitting alone, reading a book about astronomy. The girl looked friendly but seemed shy, just like Maya felt.",
+          "choices": [
+            {
+              "id": "a",
+              "text": "Maya should introduce herself to the girl",
+              "consequence": "positive"
+            },
+            {
+              "id": "b",
+              "text": "Maya should walk by without saying anything",
+              "consequence": "neutral"
+            },
+            {
+              "id": "c",
+              "text": "Maya should find a different place to sit",
+              "consequence": "negative"
+            }
+          ]
+        },
+        {
+          "scene_id": 3,
+          "text": "'Hi, I'm Maya. I love astronomy too!' she said, pointing to the book. The girl looked up with a bright smile. 'I'm Sarah! Are you new here? I'd love to show you around.' By lunchtime, Maya and Sarah were chatting like old friends, and Maya realized that taking the first step to be friendly had made all the difference.",
+          "choices": []
+        }
+      ],
+      "comprehension_questions": [
+        {
+          "id": 1,
+          "question": "How did Maya feel about starting at her new school?",
+          "type": "multiple_choice",
+          "options": [
+            "Excited and confident",
+            "Nervous and anxious",
+            "Angry and frustrated",
+            "Bored and uninterested"
+          ],
+          "correct_answer": 1,
+          "explanation": "Maya felt nervous and anxious, as shown by her pounding heart and feelings of being overwhelmed by the large school."
+        },
+        {
+          "id": 2,
+          "question": "What helped Maya make her first friend?",
+          "type": "short_answer",
+          "sample_answers": [
+            "She took the initiative to introduce herself",
+            "She noticed they had a common interest in astronomy",
+            "She was brave enough to start a conversation"
+          ],
+          "explanation": "Maya made a friend by being observant about shared interests and having the courage to introduce herself first."
+        },
+        {
+          "id": 3,
+          "question": "Describe a time when you had to do something that felt scary but turned out well. What did you learn?",
+          "type": "reflection",
+          "prompt": "Think about the emotions Maya felt and how taking action despite her fear led to a positive outcome.",
+          "themes": [
+            "courage",
+            "social_skills",
+            "taking_initiative",
+            "overcoming_fear"
+          ]
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "The Garden of Patience",
+      "description": "A story about perseverance, goal-setting, and delayed gratification",
+      "difficulty_level": "intermediate",
+      "category": "personal_development",
+      "content": [
+        {
+          "scene_id": 1,
+          "text": "Ten-year-old Jamie decided to plant a vegetable garden behind their house. They had big dreams of fresh tomatoes, carrots, and lettuce. But as Jamie looked at the packet of seeds and the empty patch of soil, they realized this would take much longer than expected.",
+          "choices": [
+            {
+              "id": "a",
+              "text": "Jamie should make a plan and start with preparing the soil",
+              "consequence": "positive"
+            },
+            {
+              "id": "b",
+              "text": "Jamie should plant all the seeds immediately without preparation",
+              "consequence": "negative"
+            },
+            {
+              "id": "c",
+              "text": "Jamie should ask a neighbor for advice first",
+              "consequence": "positive"
+            }
+          ]
+        },
+        {
+          "scene_id": 2,
+          "text": "Jamie spent the first week preparing the soil, reading about when to plant each vegetable, and carefully spacing out the seeds. Days passed, then a week, then two weeks. Jamie checked the garden every day, but nothing seemed to be happening.",
+          "choices": [
+            {
+              "id": "a",
+              "text": "Jamie should keep watering and caring for the garden patiently",
+              "consequence": "positive"
+            },
+            {
+              "id": "b",
+              "text": "Jamie should dig up the seeds to check if they're growing",
+              "consequence": "negative"
+            },
+            {
+              "id": "c",
+              "text": "Jamie should give up and try something else",
+              "consequence": "negative"
+            }
+          ]
+        },
+        {
+          "scene_id": 3,
+          "text": "On the seventeenth day, Jamie noticed tiny green shoots pushing through the soil! Over the following weeks, the plants grew stronger and taller. Three months later, Jamie harvested their first homegrown vegetables, feeling proud of their patience and dedication.",
+          "choices": []
+        }
+      ],
+      "comprehension_questions": [
+        {
+          "id": 1,
+          "question": "What was Jamie's goal?",
+          "type": "multiple_choice",
+          "options": [
+            "To become a professional farmer",
+            "To grow their own vegetables",
+            "To win a gardening contest",
+            "To help their neighbors"
+          ],
+          "correct_answer": 1,
+          "explanation": "Jamie wanted to grow their own fresh vegetables including tomatoes, carrots, and lettuce."
+        },
+        {
+          "id": 2,
+          "question": "Why was patience important for Jamie's success?",
+          "type": "short_answer",
+          "sample_answers": [
+            "Plants need time to grow",
+            "Good things take time",
+            "Rushing would have ruined the garden",
+            "Growth happens gradually, not immediately"
+          ],
+          "explanation": "Patience was essential because plant growth takes time, and rushing or giving up too early would have prevented Jamie from achieving their goal."
+        },
+        {
+          "id": 3,
+          "question": "Think of a goal you're working toward that requires patience. How can Jamie's story help you stay motivated?",
+          "type": "reflection",
+          "prompt": "Consider how setting realistic expectations and celebrating small progress can help you stay committed to long-term goals.",
+          "themes": [
+            "patience",
+            "perseverance",
+            "goal_setting",
+            "delayed_gratification"
+          ]
+        }
+      ]
+    }
+  ]
+}
