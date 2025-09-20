@@ -2,12 +2,18 @@ import React, { useState, useEffect, useRef } from 'react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 
+
 const AiTutor = ({ user, onBack, currentStory = null }) => {
   const [messages, setMessages] = useState([]);
   const [isTyping, setIsTyping] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('connecting');
   const [storyContext, setStoryContext] = useState(null);
   const messagesEndRef = useRef(null);
+
+  // Smart URL detection - works in both VS Code and Codespace
+  const API_BASE_URL = window.location.hostname.includes('github.dev') 
+    ? window.location.origin.replace('-3000', '-8000')  // Codespace URL
+    : 'http://127.0.0.1:8000';                          // Local URL
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -26,7 +32,7 @@ const AiTutor = ({ user, onBack, currentStory = null }) => {
       // Get story context if available
       if (currentStory && currentStory.id) {
         try {
-          const contextResponse = await fetch(`http://127.0.0.1:8000/api/chat/context/${currentStory.id}`, {
+          const contextResponse = await fetch(`${API_BASE_URL}/api/chat/context/${currentStory.id}`, {
             headers: {
               'Authorization': `Bearer ${user.token}`
             }
@@ -90,8 +96,8 @@ const AiTutor = ({ user, onBack, currentStory = null }) => {
         chat_mode: storyContext?.chat_mode || 'smart_mock'
       };
 
-      // Send directly to FastAPI backend
-      const response = await fetch('http://127.0.0.1:8000/api/chat', {
+      // Send to backend - automatically uses correct URL
+      const response = await fetch(`${API_BASE_URL}/api/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -160,8 +166,8 @@ const AiTutor = ({ user, onBack, currentStory = null }) => {
 
   const clearChat = async () => {
     try {
-      // Clear chat history on backend (optional)
-      await fetch(`http://127.0.0.1:8000/api/chat/clear/${user.username}`, {
+      // Clear chat history on backend - automatically uses correct URL
+      await fetch(`${API_BASE_URL}/api/chat/clear/${user.username}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -358,4 +364,3 @@ const AiTutor = ({ user, onBack, currentStory = null }) => {
 };
 
 export default AiTutor;
-
