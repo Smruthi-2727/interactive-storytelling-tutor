@@ -9,7 +9,7 @@ from contextlib import contextmanager
 # Database URL - can be overridden with environment variable
 DATABASE_URL = os.getenv(
     "DATABASE_URL", 
-    "postgresql://ist_user:ist_password@localhost:5432/interactive_storytelling_db"
+    "sqlite:///./storytelling_tutor.db"
 )
 
 # Create SQLAlchemy engine
