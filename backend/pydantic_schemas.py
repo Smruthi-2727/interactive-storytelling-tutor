@@ -20,7 +20,7 @@ class User(UserBase):
     id: int
     is_active: bool
     created_at: datetime
-
+    
     class Config:
         from_attributes = True
 
@@ -36,18 +36,19 @@ class StoryBase(BaseModel):
 
 class Story(StoryBase):
     id: int
-    content: List[Dict[str, Any]]
-    comprehension_questions: List[Dict[str, Any]]
+    scenes: List[Dict[str, Any]]  # ← Updated for 3-scene format
+    quiz: List[Dict[str, Any]]    # ← Updated for quiz format
+    total_scenes: int = 3         # ← Add this
     created_at: datetime
     is_active: bool
-
+    
     class Config:
         from_attributes = True
 
 class StoryList(StoryBase):
     id: int
     created_at: datetime
-
+    
     class Config:
         from_attributes = True
 
@@ -55,46 +56,48 @@ class StoryList(StoryBase):
 class SessionCreate(BaseModel):
     story_id: int
 
-class SessionChoice(BaseModel):
-    scene_id: int
-    choice_id: str
-
 class UserSession(BaseModel):
     id: int
     user_id: int
     story_id: int
-    current_scene_id: int
-    choices_made: List[Dict[str, Any]]
+    current_scene_index: int      # ← Fixed field name
+    scenes_completed: int = 0     # ← Added missing field
+    quiz_started: bool = False    # ← Added missing field
+    quiz_completed: bool = False  # ← Added missing field
+    quiz_score: Optional[float] = None  # ← Added missing field
+    total_reading_time: int = 0   # ← Added missing field
     started_at: datetime
     completed_at: Optional[datetime] = None
     is_completed: bool
-
+    
     class Config:
         from_attributes = True
 
 # Assessment schemas
 class AssessmentCreate(BaseModel):
     session_id: int
-    question_id: int
-    question_type: str
-    user_answer: str
+    question_index: int
+    question_text: str
+    user_answer_index: int
+    user_answer_text: str
 
 class Assessment(BaseModel):
     id: int
     user_id: int
     session_id: int
-    question_id: int
-    question_type: str
-    user_answer: str
+    question_index: int
+    question_text: str
+    user_answer_index: int
+    user_answer_text: str
+    correct_answer_index: int
     is_correct: Optional[bool]
-    score: Optional[float]
-    ai_feedback: Optional[str]
+    points_earned: Optional[int]
     created_at: datetime
-
+    
     class Config:
         from_attributes = True
 
-# Dashboard schemas
+# Stats schemas
 class UserStats(BaseModel):
     total_sessions: int
     stories_completed: int
@@ -104,8 +107,8 @@ class UserStats(BaseModel):
 
 class DashboardData(BaseModel):
     user: User
-    stats: UserStats
-    recent_sessions: List[UserSession]
+    stats: Dict[str, str]  # ← Simplified for your dashboard format
+    recent_sessions: List[Dict[str, Any]]  # ← Simplified
 
 # Token schemas
 class Token(BaseModel):

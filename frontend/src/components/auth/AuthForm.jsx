@@ -1,305 +1,230 @@
-import React, { useState } from 'react';
+
+
+
+
+import React, { useState, useEffect } from 'react';
 
 const AuthForm = ({ onLogin }) => {
-  const [isSignUp, setIsSignUp] = useState(false);
+  const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
     username: '',
-    password: '',
-    confirmPassword: ''
+    email: '',
+    full_name: '',
+    password: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Simple user storage for demo purposes
-  const getStoredUsers = () => {
-    const users = localStorage.getItem('storytelling_users');
-    return users ? JSON.parse(users) : {
-      'admin': { password: 'admin123', role: 'admin' },
-      'teacher': { password: 'teacher123', role: 'teacher' },
-      'student': { password: 'student123', role: 'student' }
-    };
-  };
-
-  const saveUser = (username, userData) => {
-    const users = getStoredUsers();
-    users[username] = userData;
-    localStorage.setItem('storytelling_users', JSON.stringify(users));
-  };
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
-    setError('');
-  };
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
-    // Basic validation [web:7][web:8]
-    if (!formData.username || !formData.password) {
-      setError('Please fill in all required fields');
-      setLoading(false);
-      return;
-    }
-
-    if (formData.username.length < 3) {
-      setError('Username must be at least 3 characters long');
-      setLoading(false);
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError('Password must be at least 6 characters long');
-      setLoading(false);
-      return;
-    }
-
     try {
-      // Simulate API delay [web:7]
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const endpoint = isLogin ? '/auth/login' : '/auth/signup';
+      const body = isLogin 
+        ? { username: formData.username, password: formData.password }
+        : formData;
 
-      const users = getStoredUsers();
+      const response = await fetch(`http://localhost:8000${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
 
-      if (isSignUp) {
-        // Check if username already exists
-        if (users[formData.username.toLowerCase()]) {
-          setError('Username already exists. Please choose another one.');
-          setLoading(false);
-          return;
+      const data = await response.json();
+
+      if (response.ok) {
+        if (isLogin) {
+          localStorage.setItem('auth_token', data.access_token);
+          localStorage.setItem('current_user', JSON.stringify({
+            username: formData.username,
+            token: data.access_token,
+            authenticated: true
+          }));
+          onLogin({
+            username: formData.username,
+            token: data.access_token,
+            authenticated: true,
+          });
+        } else {
+          setIsLogin(true);
+          setError('Account created! Please login.');
+          setFormData({ username: '', email: '', full_name: '', password: '' });
         }
-
-        if (formData.password !== formData.confirmPassword) {
-          setError('Passwords do not match');
-          setLoading(false);
-          return;
-        }
-
-        // Create new user
-        const newUser = {
-          password: formData.password,
-          role: 'student',
-          createdAt: new Date().toISOString()
-        };
-
-        saveUser(formData.username.toLowerCase(), newUser);
-
-        const userData = {
-          id: Date.now(),
-          username: formData.username.toLowerCase(),
-          role: 'student',
-          token: 'token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
-        };
-
-        localStorage.setItem('auth_token', userData.token);
-        localStorage.setItem('current_user', JSON.stringify(userData));
-        onLogin(userData);
-
       } else {
-        // Sign In Logic
-        const user = users[formData.username.toLowerCase()];
-        
-        if (!user) {
-          setError('Username not found');
-          setLoading(false);
-          return;
-        }
-
-        if (user.password !== formData.password) {
-          setError('Incorrect password');
-          setLoading(false);
-          return;
-        }
-
-        // Successful login
-        const userData = {
-          id: Date.now(),
-          username: formData.username.toLowerCase(),
-          role: user.role,
-          token: 'token_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
-          lastLogin: new Date().toISOString()
-        };
-
-        localStorage.setItem('auth_token', userData.token);
-        localStorage.setItem('current_user', JSON.stringify(userData));
-        onLogin(userData);
+        setError(data.detail || 'Authentication failed');
       }
     } catch (err) {
-      setError(isSignUp ? 'Failed to create account. Please try again.' : 'Login failed. Please try again.');
-    } finally {
-      setLoading(false);
+      setError('Connection error. Is the backend running?');
     }
-  };
 
-  const toggleMode = () => {
-    setIsSignUp(!isSignUp);
-    setFormData({
-      username: '',
-      password: '',
-      confirmPassword: ''
-    });
-    setError('');
+    setLoading(false);
   };
 
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 25%, #334155 75%, #475569 100%)',
       display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px',
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+      position: 'relative',
+      overflow: 'hidden',
+      fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif'
     }}>
-      {/* Decorative Elements */}
+      {/* Left Panel */}
       <div style={{
-        position: 'absolute',
-        top: '15%',
-        left: '10%',
-        width: '120px',
-        height: '120px',
-        background: 'rgba(255,255,255,0.1)',
-        borderRadius: '50%',
-        animation: 'float 6s ease-in-out infinite'
-      }} />
-      <div style={{
-        position: 'absolute',
-        bottom: '20%',
-        right: '15%',
-        width: '80px',
-        height: '80px',
-        background: 'rgba(255,255,255,0.08)',
-        borderRadius: '50%',
-        animation: 'float 8s ease-in-out infinite reverse'
-      }} />
-
-      <div style={{
-        background: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(15px)',
-        borderRadius: '20px',
-        padding: '40px',
-        boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
-        width: '100%',
-        maxWidth: '400px',
-        border: '1px solid rgba(255,255,255,0.2)'
+        flex: 1,
+        background: 'linear-gradient(135deg, rgba(0,0,0,0.4), rgba(0,0,0,0.2))',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: '60px',
+        color: 'white',
+        textAlign: 'center'
       }}>
-        {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <div style={{
-            background: 'linear-gradient(135deg, #667eea, #764ba2)',
-            width: '70px',
-            height: '70px',
-            borderRadius: '50%',
-            margin: '0 auto 20px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '2rem',
-            boxShadow: '0 8px 20px rgba(102, 126, 234, 0.3)'
-          }}>
-            📚
-          </div>
-          <h1 style={{
-            color: '#2d3748',
-            fontSize: '1.8rem',
-            margin: '0 0 10px 0',
-            fontWeight: '700'
-          }}>
-            Storytelling Tutor
-          </h1>
+        <div style={{
+          fontSize: '5rem',
+          marginBottom: '30px',
+          filter: 'drop-shadow(0 10px 20px rgba(0,0,0,0.3))'
+        }}>
+          🎓
+        </div>
+        <h1 style={{
+          fontSize: '3.5rem',
+          fontWeight: '700',
+          margin: '0 0 20px 0',
+          background: 'linear-gradient(135deg, #f8fafc, #cbd5e1)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+        }}>
+          Interactive Storytelling Tutor
+        </h1>
+        <h2 style={{
+          fontSize: '1.8rem',
+          fontWeight: '400',
+          margin: '0 0 30px 0',
+          color: '#e2e8f0',
+          lineHeight: '1.4'
+        }}>
+          An immersive learning platform
+        </h2>
+        <div style={{
+          padding: '25px 35px',
+          background: 'rgba(255,255,255,0.1)',
+          borderRadius: '15px',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255,255,255,0.2)'
+        }}>
           <p style={{
-            color: '#718096',
-            fontSize: '14px',
-            margin: 0
+            color: '#cbd5e1',
+            fontSize: '1.1rem',
+            lineHeight: '1.6',
+            margin: 0,
+            maxWidth: '400px'
           }}>
-            {isSignUp ? 'Create your account to start learning' : 'Welcome back! Please sign in'}
+            "Transforming education with personalized storytelling and engaging quizzes."
           </p>
         </div>
+      </div>
 
-        {/* Error Message */}
-        {error && (
-          <div style={{
-            background: '#fed7d7',
-            border: '1px solid #fc8181',
-            color: '#c53030',
-            padding: '12px 16px',
-            borderRadius: '8px',
-            marginBottom: '20px',
-            fontSize: '14px',
-            textAlign: 'center'
-          }}>
-            {error}
+      {/* Right Panel - Form */}
+      <div style={{
+        flex: 1,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '40px',
+        background: 'rgba(255,255,255,0.02)',
+        backdropFilter: 'blur(10px)'
+      }}>
+        <div style={{
+          background: 'rgba(255,255,255,0.95)',
+          padding: '50px',
+          borderRadius: '24px',
+          boxShadow: '0 25px 50px rgba(0,0,0,0.2)',
+          width: '100%',
+          maxWidth: '450px',
+          border: '1px solid rgba(255,255,255,0.3)'
+        }}>
+          {/* Current Time */}
+          <div style={{ textAlign: 'center', marginBottom: '20px', color: '#64748b' }}>
+            {currentTime.toLocaleString()}
           </div>
-        )}
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div>
-            <label style={{
-              display: 'block',
-              color: '#2d3748',
-              fontSize: '14px',
-              fontWeight: '600',
-              marginBottom: '6px'
-            }}>
-              Username
-            </label>
+          {/* Form */}
+          <form onSubmit={handleSubmit}>
             <input
               type="text"
-              name="username"
+              placeholder="Username"
               value={formData.username}
-              onChange={handleChange}
-              placeholder="Enter your username"
-              autoComplete="username"
+              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
               style={{
                 width: '100%',
-                padding: '12px 16px',
-                border: '2px solid #e2e8f0',
+                padding: '12px',
+                marginBottom: '15px',
                 borderRadius: '8px',
-                fontSize: '16px',
-                outline: 'none',
-                transition: 'border-color 0.2s',
-                boxSizing: 'border-box'
+                border: '1px solid #d1d5db',
+                fontSize: '16px'
               }}
-              onFocus={(e) => e.target.style.borderColor = '#667eea'}
-              onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+              required
             />
-          </div>
 
-          <div>
-            <label style={{
-              display: 'block',
-              color: '#2d3748',
-              fontSize: '14px',
-              fontWeight: '600',
-              marginBottom: '6px'
-            }}>
-              Password
-            </label>
-            <div style={{ position: 'relative' }}>
+            {!isLogin && <>
               <input
-                type={showPassword ? "text" : "password"}
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="Enter your password"
-                autoComplete={isSignUp ? "new-password" : "current-password"}
+                type="email"
+                placeholder="Email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 style={{
                   width: '100%',
-                  padding: '12px 45px 12px 16px',
-                  border: '2px solid #e2e8f0',
+                  padding: '12px',
+                  marginBottom: '15px',
                   borderRadius: '8px',
-                  fontSize: '16px',
-                  outline: 'none',
-                  transition: 'border-color 0.2s',
-                  boxSizing: 'border-box'
+                  border: '1px solid #d1d5db',
+                  fontSize: '16px'
                 }}
-                onFocus={(e) => e.target.style.borderColor = '#667eea'}
-                onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
+                required
+              />
+              <input
+                type="text"
+                placeholder="Full Name"
+                value={formData.full_name}
+                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  marginBottom: '15px',
+                  borderRadius: '8px',
+                  border: '1px solid #d1d5db',
+                  fontSize: '16px'
+                }}
+                required
+              />
+            </>}
+
+            <div style={{ position: 'relative', marginBottom: '20px' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #d1d5db',
+                  fontSize: '16px'
+                }}
+                required
               />
               <button
                 type="button"
@@ -313,163 +238,93 @@ const AuthForm = ({ onLogin }) => {
                   border: 'none',
                   cursor: 'pointer',
                   fontSize: '16px',
-                  color: '#718096'
+                  color: '#6b7280'
                 }}
               >
-                {showPassword ? '👁️' : '👁️‍🗨️'}
+                {showPassword ? '🙈' : '👁️'}
               </button>
             </div>
-          </div>
 
-          {isSignUp && (
-            <div>
-              <label style={{
-                display: 'block',
-                color: '#2d3748',
+            {error && (
+              <div style={{
+                background: '#fee2e2',
+                border: '1px solid #fecaca',
+                color: '#dc2626',
+                padding: '12px',
+                borderRadius: '8px',
+                marginBottom: '15px',
                 fontSize: '14px',
-                fontWeight: '600',
-                marginBottom: '6px'
+                textAlign: 'center'
               }}>
-                Confirm Password
-              </label>
-              <input
-                type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                placeholder="Confirm your password"
-                autoComplete="new-password"
-                style={{
-                  width: '100%',
-                  padding: '12px 16px',
-                  border: '2px solid #e2e8f0',
-                  borderRadius: '8px',
-                  fontSize: '16px',
-                  outline: 'none',
-                  transition: 'border-color 0.2s',
-                  boxSizing: 'border-box'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#667eea'}
-                onBlur={(e) => e.target.style.borderColor = '#e2e8f0'}
-              />
-            </div>
-          )}
+                <strong>⚠️</strong> {error}
+              </div>
+            )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              background: loading ? '#a0aec0' : 'linear-gradient(135deg, #667eea, #764ba2)',
-              color: 'white',
-              border: 'none',
-              padding: '14px 20px',
-              borderRadius: '8px',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px'
-            }}
-          >
-            {loading ? (
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '15px',
+                background: loading ? '#9ca3af' : '#667eea',
+                color: 'white',
+                fontSize: '16px',
+                fontWeight: '700',
+                borderRadius: '8px',
+                border: 'none',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                transition: 'background 0.3s ease'
+              }}
+            >
+              {loading ? (isLogin ? 'Signing In...' : 'Creating Account...') : (isLogin ? 'Sign In' : 'Sign Up')}
+            </button>
+          </form>
+
+          <div style={{ marginTop: '20px', textAlign: 'center' }}>
+            {isLogin ? (
               <>
-                <div style={{
-                  width: '16px',
-                  height: '16px',
-                  border: '2px solid #ffffff40',
-                  borderTop: '2px solid white',
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite'
-                }} />
-                {isSignUp ? 'Creating Account...' : 'Signing In...'}
+                Don't have an account?{' '}
+                <button
+                  onClick={() => {
+                    setIsLogin(false);
+                    setError('');
+                    setFormData({ username: '', email: '', full_name: '', password: '' });
+                  }}
+                  style={{ background: 'none', border: 'none', color: '#667eea', cursor: 'pointer', fontWeight: '600' }}
+                >
+                  Sign Up
+                </button>
               </>
             ) : (
-              isSignUp ? 'Create Account' : 'Sign In'
+              <>
+                Already have an account?{' '}
+                <button
+                  onClick={() => {
+                    setIsLogin(true);
+                    setError('');
+                    setFormData({ username: '', email: '', full_name: '', password: '' });
+                  }}
+                  style={{ background: 'none', border: 'none', color: '#667eea', cursor: 'pointer', fontWeight: '600' }}
+                >
+                  Sign In
+                </button>
+              </>
             )}
-          </button>
-        </form>
-
-        {/* Toggle Mode */}
-        <div style={{
-          textAlign: 'center',
-          marginTop: '25px',
-          paddingTop: '20px',
-          borderTop: '1px solid #e2e8f0'
-        }}>
-          <p style={{ color: '#718096', fontSize: '14px', margin: '0 0 10px 0' }}>
-            {isSignUp ? 'Already have an account?' : "Don't have an account?"}
-          </p>
-          <button
-            onClick={toggleMode}
-            style={{
-              background: 'transparent',
-              color: '#667eea',
-              border: '2px solid #667eea',
-              padding: '8px 20px',
-              borderRadius: '6px',
-              fontSize: '14px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.background = '#667eea';
-              e.target.style.color = 'white';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.background = 'transparent';
-              e.target.style.color = '#667eea';
-            }}
-          >
-            {isSignUp ? 'Sign In' : 'Create Account'}
-          </button>
-        </div>
-
-        {/* Demo Users */}
-        {!isSignUp && (
-          <div style={{
-            marginTop: '20px',
-            padding: '15px',
-            background: '#f7fafc',
-            borderRadius: '8px',
-            border: '1px solid #e2e8f0'
-          }}>
-            <h4 style={{ 
-              color: '#2d3748', 
-              fontSize: '12px', 
-              margin: '0 0 8px 0',
-              fontWeight: '600'
-            }}>
-              Demo Accounts:
-            </h4>
-            <div style={{ fontSize: '11px', color: '#4a5568', lineHeight: '1.4' }}>
-              <div><strong>admin</strong> / admin123</div>
-              <div><strong>teacher</strong> / teacher123</div>
-              <div><strong>student</strong> / student123</div>
-            </div>
           </div>
-        )}
+        </div>
       </div>
 
-      <style jsx>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-15px); }
-        }
-      `}</style>
+      {/* Floating background circles animation style */}
+      <style>
+        {`
+          @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+          }
+        `}
+      </style>
     </div>
   );
 };
 
 export default AuthForm;
-
-
-

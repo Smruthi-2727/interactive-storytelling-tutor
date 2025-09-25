@@ -1,12 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import AuthForm from './components/auth/AuthForm';
 import StoriesList from './components/story/StoriesList';
 import StoryReader from './components/story/StoryReader';
-import AssessmentSystem from './components/assessment/AssessmentSystem';
 import ProgressPage from './pages/ProgressPage';
 import AssessmentsPage from './pages/AssessmentsPage';
-import AiTutor from './components/tutor/AiTutor'; // Add AI Tutor import
+import AiTutor from './components/tutor/AiTutor';
+import ProgressCard from './components/dashboard/ProgressCard';
+import AssessmentCard from './components/dashboard/AssessmentsCard';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -14,52 +15,165 @@ function App() {
   const [selectedStory, setSelectedStory] = useState(null);
   const [currentSession, setCurrentSession] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [dashboardStats, setDashboardStats] = useState(null);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  
+  // ✅ FIX: Add refresh trigger for real-time progress updates
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  
+  // 🚨 FIX: Prevent duplicate API calls with useRef protection
+  const dashboardFetchAttempted = useRef(false);
 
   useEffect(() => {
-    // Check for existing authentication using new token system [web:84][web:86]
-    const token = localStorage.getItem('auth_token');
-    const userData = localStorage.getItem('current_user');
+    // Check for existing authentication
+    const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
     
-    if (token && userData && token.startsWith('token_')) {
-      try {
-        const user = JSON.parse(userData);
-        // Validate token format and user data structure
-        if (user.username && user.role && user.token === token) {
-          setUser(user);
-        } else {
-          // Invalid token or user data, clear it
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('current_user');
-        }
-      } catch (err) {
-        // Invalid user data format, clear it
-        localStorage.removeItem('auth_token');
-        localStorage.removeItem('current_user');
-      }
-    } else if (token) {
-      // Old or invalid token format, clear it
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('current_user');
+    if (token) {
+      console.log('🔍 Found existing token, validating...');
+      validateTokenAndSetUser(token);
+    } else {
+      console.log('ℹ️ No existing token found');
+      setLoading(false);
     }
-    setLoading(false);
   }, []);
 
+  // Enhanced token validation with user info extraction
+  const validateTokenAndSetUser = async (token) => {
+    try {
+      console.log('🔄 Validating token with backend...');
+      
+      const response = await fetch('http://localhost:8000/api/dashboard', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        console.log('✅ Token valid, setting up user session');
+        const data = await response.json();
+        
+        // Create user object from backend response
+        const userData = {
+          username: 'student', // Could be extracted from token or separate endpoint
+          role: 'student',
+          token: token,
+          authenticated: true
+        };
+
+        setUser(userData);
+        setDashboardStats(data.stats);
+        setLastUpdated(new Date());
+        
+        // Store user data
+        localStorage.setItem('current_user', JSON.stringify(userData));
+      } else if (response.status === 401) {
+        console.log('❌ Token expired or invalid');
+        handleTokenExpired();
+      } else {
+        console.log('⚠️ Token validation failed:', response.status);
+        handleTokenExpired();
+      }
+    } catch (error) {
+      console.error('❌ Token validation error:', error);
+      // Don't clear token on network errors, user might be offline
+      const userData = {
+        username: 'student',
+        role: 'student', 
+        token: token,
+        authenticated: true
+      };
+      setUser(userData);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle token expiration
+  const handleTokenExpired = () => {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('token');
+    localStorage.removeItem('current_user');
+    setUser(null);
+    setDashboardStats(null);
+  };
+
+  // ✅ FIX: Enhanced dashboard stats fetching with duplicate protection
+  const fetchDashboardStats = async (token, isRefresh = false) => {
+    // Prevent duplicate fetches unless forced refresh
+    if (!isRefresh && dashboardFetchAttempted.current) {
+      console.log('🚫 Dashboard stats fetch blocked - already attempted');
+      return;
+    }
+    
+    dashboardFetchAttempted.current = true;
+
+    try {
+      console.log(isRefresh ? '🔄 Refreshing dashboard stats...' : '🔄 Fetching dashboard stats...');
+      
+      const response = await fetch(`http://localhost:8000/api/dashboard?t=${Date.now()}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Dashboard stats loaded:', data.stats);
+        setDashboardStats(data.stats);
+        setLastUpdated(new Date());
+      } else if (response.status === 401) {
+        console.log('❌ Authentication failed while fetching stats');
+        handleTokenExpired();
+      }
+    } catch (error) {
+      console.error('❌ Error fetching dashboard stats:', error);
+      // Use fallback stats if API fails
+      if (!dashboardStats) {
+        setDashboardStats({
+          stories_completed: "0/3",
+          total_reading_time: "0m", 
+          average_score: "0%",
+          current_streak: "0 days"
+        });
+      }
+    } finally {
+      // Reset fetch protection after 2 seconds to allow future refreshes
+      setTimeout(() => {
+        dashboardFetchAttempted.current = false;
+      }, 2000);
+    }
+  };
+
   const handleLogin = (userData) => {
-    console.log('User logged in:', userData);
+    console.log('✅ User logged in:', userData);
     setUser(userData);
+    dashboardFetchAttempted.current = false; // Reset for new user
+    fetchDashboardStats(userData.token);
   };
 
   const handleLogout = () => {
-    // Clear all authentication data [web:87][web:89]
+    console.log('🚪 User logging out');
+    // Clear all authentication data
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('token');
     localStorage.removeItem('current_user');
     setUser(null);
     setCurrentView('dashboard');
     setSelectedStory(null);
     setCurrentSession(null);
+    setDashboardStats(null);
+    setLastUpdated(null);
+    setRefreshTrigger(0); // Reset refresh trigger
+    
+    // Reset all ref protections
+    dashboardFetchAttempted.current = false;
   };
 
   const handleSelectStory = (story) => {
+    console.log('📖 Story selected:', story.title);
     setSelectedStory(story);
     setCurrentView('reading');
   };
@@ -70,15 +184,31 @@ function App() {
     setCurrentSession(null);
   };
 
+  // ✅ FIXED: Skip AssessmentSystem completely - go directly to dashboard
   const handleStoryComplete = (session) => {
+    console.log('🎉 Story completed:', session);
     setCurrentSession(session);
-    setCurrentView('assessment');
-  };
-
-  const handleAssessmentComplete = () => {
-    setCurrentView('dashboard');
-    setSelectedStory(null);
-    setCurrentSession(null);
+    
+    // ✅ CRITICAL FIX: Skip AssessmentSystem - go directly to dashboard since quiz is already done
+    console.log('✅ Quiz already completed in StoryReader - returning to dashboard');
+    setCurrentView('dashboard'); // ← CHANGED from 'assessment' to 'dashboard'
+    
+    // ✅ IMMEDIATE TRIGGER: Force refresh of progress and assessment cards
+    console.log('🚀 TRIGGERING IMMEDIATE COMPONENT REFRESH...');
+    setRefreshTrigger(prev => {
+      const newTrigger = prev + 1;
+      console.log(`🎯 Refresh trigger updated: ${prev} -> ${newTrigger}`);
+      return newTrigger;
+    });
+    
+    // Also refresh dashboard stats (with slight delay to ensure backend is updated)
+    if (user?.token && !dashboardFetchAttempted.current) {
+      setTimeout(() => {
+        console.log('🔄 Refreshing dashboard stats after quiz completion...');
+        dashboardFetchAttempted.current = false; // Allow forced refresh
+        fetchDashboardStats(user.token, true);
+      }, 500);
+    }
   };
 
   const handleViewProgress = () => {
@@ -91,21 +221,33 @@ function App() {
 
   const handleBackToDashboard = () => {
     setCurrentView('dashboard');
+    // Refresh stats when returning to dashboard (with throttling)
+    if (user?.token && !dashboardFetchAttempted.current) {
+      dashboardFetchAttempted.current = false; // Allow refresh
+      fetchDashboardStats(user.token, true);
+    }
   };
 
-  // Add AI Tutor navigation handler
   const handleViewAiTutor = () => {
     setCurrentView('ai-tutor');
   };
 
+  // Clean up on unmount
+  useEffect(() => {
+    return () => {
+      dashboardFetchAttempted.current = false;
+    };
+  }, []);
+
+  // Enhanced navigation header
   const NavHeader = () => (
     <div style={{
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
       padding: '20px 0',
-      borderBottom: (currentView === 'reading' || currentView === 'assessment' || currentView === 'ai-tutor') ? 'none' : '2px solid #e5e7eb',
-      marginBottom: (currentView === 'reading' || currentView === 'assessment' || currentView === 'ai-tutor') ? '0' : '30px'
+      borderBottom: (currentView === 'reading' || currentView === 'ai-tutor') ? 'none' : '2px solid #e5e7eb',
+      marginBottom: (currentView === 'reading' || currentView === 'ai-tutor') ? '0' : '30px'
     }}>
       <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
         <h1 style={{
@@ -130,10 +272,56 @@ function App() {
               {user.role}
             </span>
           )}
+          {/* Backend connection indicator */}
+          {dashboardStats && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '11px',
+              color: '#059669',
+              background: '#f0fdf4',
+              padding: '4px 8px',
+              borderRadius: '12px',
+              border: '1px solid #dcfce7'
+            }}>
+              <div style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: '#22c55e',
+                animation: 'pulse 2s infinite'
+              }}></div>
+              LIVE DATA
+            </div>
+          )}
+          {/* Show refresh indicator */}
+          {refreshTrigger > 0 && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '11px',
+              color: '#f59e0b',
+              background: '#fefce8',
+              padding: '4px 8px',
+              borderRadius: '12px',
+              border: '1px solid #fef3c7'
+            }}>
+              <div style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: '#f59e0b',
+                animation: 'pulse 1s infinite'
+              }}></div>
+              UPDATING
+            </div>
+          )}
         </h1>
       </div>
       
-      {(currentView !== 'reading' && currentView !== 'assessment' && currentView !== 'ai-tutor') && (
+      {(currentView !== 'reading' && currentView !== 'ai-tutor') && (
         <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
           <div style={{
             display: 'flex',
@@ -148,12 +336,31 @@ function App() {
             }}>
               Welcome, @{user?.username}! 👋
             </span>
-            <span style={{
-              color: '#6b7280',
-              fontSize: '12px'
-            }}>
-              {user?.role} account
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{
+                color: '#6b7280',
+                fontSize: '12px'
+              }}>
+                {user?.role} account
+              </span>
+              {lastUpdated && (
+                <span style={{
+                  color: '#9ca3af',
+                  fontSize: '10px'
+                }}>
+                  • Updated {lastUpdated.toLocaleTimeString()}
+                </span>
+              )}
+              {refreshTrigger > 0 && (
+                <span style={{
+                  color: '#f59e0b',
+                  fontSize: '10px',
+                  fontWeight: 'bold'
+                }}>
+                  • Quiz #{refreshTrigger} completed!
+                </span>
+              )}
+            </div>
           </div>
           
           <button
@@ -255,7 +462,8 @@ function App() {
               animation: 'spin 1s linear infinite',
               margin: '0 auto 20px'
             }}></div>
-            <h2 style={{ color: '#1f2937', margin: 0 }}>📚 Loading Storytelling Tutor...</h2>
+            <h2 style={{ color: '#1f2937', margin: '0 0 10px 0' }}>📚 Loading Interactive Storytelling Tutor...</h2>
+            <p style={{ color: '#6b7280', margin: 0 }}>Connecting to backend database...</p>
           </div>
         </div>
       </div>
@@ -279,7 +487,7 @@ function App() {
       padding: '20px'
     }}>
       <div style={{
-        maxWidth: (currentView === 'reading' || currentView === 'assessment' || currentView === 'ai-tutor') ? '1000px' : '1200px',
+        maxWidth: (currentView === 'reading' || currentView === 'ai-tutor') ? '1000px' : '1200px',
         margin: '0 auto',
         background: 'white',
         borderRadius: '20px',
@@ -303,7 +511,12 @@ function App() {
               fontSize: '18px',
               marginBottom: '40px'
             }}>
-              Logged in as <strong>{user.role}</strong> • Session Active for @{user.username} 🔐
+              Logged in as <strong>{user.role}</strong> • Live session active for @{user.username} 🔐
+              {refreshTrigger > 0 && (
+                <span style={{ color: '#f59e0b', fontWeight: 'bold' }}>
+                  {' '}• {refreshTrigger} quiz{refreshTrigger === 1 ? '' : 's'} completed! 🎯
+                </span>
+              )}
             </p>
             
             <div style={{
@@ -312,7 +525,7 @@ function App() {
               gap: '30px',
               marginBottom: '40px'
             }}>
-              {/* Stories Card */}
+              {/* 3-Scene Stories Card */}
               <div style={{
                 background: 'linear-gradient(135deg, #667eea, #764ba2)',
                 color: 'white',
@@ -328,10 +541,21 @@ function App() {
               onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
               >
                 <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📚</div>
-                <h3 style={{ fontSize: '1.5rem', margin: '0 0 15px 0' }}>Interactive Stories</h3>
+                <h3 style={{ fontSize: '1.5rem', margin: '0 0 15px 0' }}>3-Scene Stories</h3>
                 <p style={{ margin: '0 0 20px 0', opacity: 0.9 }}>
-                  Professionally crafted educational stories
+                  Interactive storytelling with comprehension quizzes
                 </p>
+                <div style={{ 
+                  fontSize: '14px', 
+                  opacity: 0.8,
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  padding: '8px 12px',
+                  borderRadius: '20px',
+                  margin: '10px auto',
+                  display: 'inline-block'
+                }}>
+                  📖 Read → 🧠 Quiz → 📊 Track Progress
+                </div>
               </div>
 
               {/* AI Tutor Card */}
@@ -354,72 +578,57 @@ function App() {
                 <p style={{ margin: '0 0 20px 0', opacity: 0.9 }}>
                   Get personalized help and explanations
                 </p>
+                <div style={{ fontSize: '14px', opacity: 0.8 }}>
+                  Intelligent assistance for your learning journey
+                </div>
               </div>
 
-              {/* Progress Card */}
-              <div style={{
-                background: 'linear-gradient(135deg, #10b981, #059669)',
-                color: 'white',
-                padding: '30px',
-                borderRadius: '16px',
-                cursor: 'pointer',
-                transition: 'transform 0.3s ease',
-                textAlign: 'center',
-                boxShadow: '0 10px 25px rgba(16, 185, 129, 0.3)'
-              }}
-              onClick={handleViewProgress}
-              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-8px)'}
-              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-              >
-                <div style={{ fontSize: '3rem', marginBottom: '15px' }}>📊</div>
-                <h3 style={{ fontSize: '1.5rem', margin: '0 0 15px 0' }}>Learning Progress</h3>
-                <p style={{ margin: '0 0 20px 0', opacity: 0.9 }}>
-                  Track achievements and improvement
-                </p>
-              </div>
+              {/* ✅ FIX: Use the updated ProgressCard with refreshTrigger prop */}
+              <ProgressCard 
+                onClick={handleViewProgress} 
+                refreshTrigger={refreshTrigger}
+              />
 
-              {/* Assessments Card */}
-              <div style={{
-                background: 'linear-gradient(135deg, #7c3aed, #5b21b6)',
-                color: 'white',
-                padding: '30px',
-                borderRadius: '16px',
-                cursor: 'pointer',
-                transition: 'transform 0.3s ease',
-                textAlign: 'center',
-                boxShadow: '0 10px 25px rgba(124, 58, 237, 0.3)'
-              }}
-              onClick={handleViewAssessments}
-              onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-8px)'}
-              onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-              >
-                <div style={{ fontSize: '3rem', marginBottom: '15px' }}>🏆</div>
-                <h3 style={{ fontSize: '1.5rem', margin: '0 0 15px 0' }}>AI Assessments</h3>
-                <p style={{ margin: '0 0 20px 0', opacity: 0.9 }}>
-                  Intelligent feedback and scoring
-                </p>
-              </div>
+              {/* ✅ FIX: Use the updated AssessmentCard with refreshTrigger prop */}
+              <AssessmentCard 
+                onClick={handleViewAssessments} 
+                refreshTrigger={refreshTrigger}
+              />
             </div>
 
+            {/* Enhanced status banner with real-time data */}
             <div style={{
-              background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)',
-              border: '2px solid #22c55e',
+              background: dashboardStats 
+                ? 'linear-gradient(135deg, #f0fdf4, #dcfce7)' 
+                : 'linear-gradient(135deg, #fef7ff, #f3e8ff)',
+              border: `2px solid ${dashboardStats ? '#22c55e' : '#a855f7'}`,
               borderRadius: '16px',
               padding: '25px',
-              color: '#059669'
+              color: dashboardStats ? '#059669' : '#7c3aed'
             }}>
               <h3 style={{ margin: '0 0 10px 0', fontSize: '1.3rem' }}>
-                ✨ Complete Educational Learning Platform
+                {dashboardStats ? '🟢 Live Backend Connection Active' : '🔄 Connecting to Backend...'}
+                {refreshTrigger > 0 && (
+                  <span style={{ color: '#f59e0b', marginLeft: '10px' }}>
+                    • {refreshTrigger} Quiz{refreshTrigger === 1 ? '' : 's'} Completed! 🎯
+                  </span>
+                )}
               </h3>
               <p style={{ margin: 0, fontSize: '16px' }}>
-                Full Learning Experience: Stories → Interactive Reading → AI Tutor Chat → Assessment → Progress Tracking!
+                {dashboardStats 
+                  ? `Real-time progress tracking • Stories: ${dashboardStats.stories_completed} • Average: ${dashboardStats.average_score} • Reading time: ${dashboardStats.total_reading_time}`
+                  : 'Setting up your personalized learning experience with real-time progress tracking...'
+                }
               </p>
             </div>
           </div>
         )}
 
         {currentView === 'stories' && (
-          <StoriesList onSelectStory={handleSelectStory} />
+          <StoriesList 
+            onSelectStory={handleSelectStory} 
+            onBack={() => setCurrentView('dashboard')}
+          />
         )}
 
         {currentView === 'reading' && selectedStory && (
@@ -427,15 +636,6 @@ function App() {
             story={selectedStory}
             onBack={handleBackToStories}
             onComplete={handleStoryComplete}
-          />
-        )}
-
-        {currentView === 'assessment' && selectedStory && currentSession && (
-          <AssessmentSystem
-            story={selectedStory}
-            session={currentSession}
-            onComplete={handleAssessmentComplete}
-            onBack={handleBackToStories}
           />
         )}
 
@@ -462,14 +662,13 @@ function App() {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
       `}</style>
     </div>
   );
 }
 
 export default App;
-
-
-
-
-

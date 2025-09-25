@@ -1,130 +1,498 @@
 import React, { useState, useEffect } from 'react';
 
 const StoryReader = ({ story, onBack, onComplete }) => {
+  // ✅ All state variables needed
   const [session, setSession] = useState(null);
-  const [currentScene, setCurrentScene] = useState(null);
-  const [loading, setLoading] = useState(false); // Changed to false
+  const [currentSceneIndex, setCurrentSceneIndex] = useState(0);
+  const [showQuiz, setShowQuiz] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [quizAnswers, setQuizAnswers] = useState({});
+  const [quizScore, setQuizScore] = useState(null);
+  const [sceneStartTime, setSceneStartTime] = useState(Date.now());
+  const [storyScenes, setStoryScenes] = useState([]);
+  const [quizQuestions, setQuizQuestions] = useState([]);
+  const [error, setError] = useState(null);
+  
+  // ✅ NEW: Track total story reading time from start to finish
+  const [totalStoryStartTime, setTotalStoryStartTime] = useState(Date.now());
+  const [totalSceneTime, setTotalSceneTime] = useState(0); // Accumulate scene reading times
 
   useEffect(() => {
-    // Skip API calls - directly set up the story
-    setSession({ 
-      id: Date.now(), 
-      story_id: story.id, 
-      choices_made: [],
-      is_completed: false 
-    });
+    // ✅ Set story start time when component mounts
+    const storyStart = Date.now();
+    setTotalStoryStartTime(storyStart);
+    setSceneStartTime(storyStart);
+    setTotalSceneTime(0);
+    console.log('📖 Story reading session started at:', new Date(storyStart).toLocaleTimeString());
     
-    const storyScenes = getStoryScenes(story);
-    setCurrentScene(storyScenes[0]);
-    setLoading(false);
+    // ✅ CREATE REAL SESSION when component mounts
+    createRealSession();
   }, [story]);
 
-  // Fallback story scenes for your 4 stories
-  const getStoryScenes = (story) => {
-    const storyContent = {
-      "The Lion and the Mouse": [
-        {
-          scene_id: 1,
-          text: "Once upon a time, a tiny mouse ran over a sleeping lion's face and woke him up. The lion was angry and caught the mouse in his huge paw. 'Please don't eat me!' squeaked the mouse. 'I'm sorry I woke you. If you let me go, I promise to help you someday!' The lion laughed at such a small creature offering help, but he was feeling kind that day and let the mouse go.",
-          choices: [
-            { id: 1, text: "The mouse keeps his promise and helps the lion later" },
-            { id: 2, text: "Continue reading to see what happens next" }
-          ]
-        },
-        {
-          scene_id: 2,
-          text: "Weeks later, the lion was caught in a hunter's net. He roared and struggled but couldn't escape. The little mouse heard his cries and came running. 'I can help!' said the mouse, and began gnawing through the thick ropes with his sharp teeth. Soon the lion was free. 'Thank you, little friend,' said the lion. 'I learned that even the smallest friend can be the greatest help of all!'",
-          choices: []
-        }
-      ],
-      "The Tortoise and the Hare": [
-        {
-          scene_id: 1,
-          text: "A hare was making fun of a tortoise for being so slow. 'Do you ever get anywhere?' he asked with a mocking laugh. 'Yes,' replied the tortoise, 'and I get there sooner than you think. I'll run you a race and prove it.' The hare was much amused at the idea of racing a tortoise, but for the fun of it he agreed. So the fox, who had consented to act as judge, marked the distance and started the runners off.",
-          choices: [
-            { id: 1, text: "See how the race unfolds" },
-            { id: 2, text: "Continue to the exciting conclusion" }
-          ]
-        },
-        {
-          scene_id: 2,
-          text: "The hare soon left the tortoise behind and, confident of winning, took a nap midway through the race. When the hare awoke, he found that the tortoise, moving slowly but steadily, had arrived before him. The tortoise won the race through perseverance and determination, while the hare lost due to his overconfidence and laziness.",
-          choices: []
-        }
-      ],
-      "The Boy Who Cried Wolf": [
-        {
-          scene_id: 1,
-          text: "There once was a shepherd boy who was bored as he sat on the hillside watching the village sheep. To amuse himself he took a great breath and sang out, 'Wolf! Wolf! The wolf is chasing the sheep!' The villagers came running up the hill to help the boy drive the wolf away. But when they arrived at the top of the hill, they found no wolf. The boy laughed at the sight of their angry faces.",
-          choices: [
-            { id: 1, text: "See what happens when the boy lies again" },
-            { id: 2, text: "Continue to see the consequences" }
-          ]
-        },
-        {
-          scene_id: 2,
-          text: "Later, the boy sang out again, 'Wolf! Wolf!' To his naughty delight, he watched the villagers run up the hill to help him drive the wolf away. When they saw no wolf they sternly said, 'Save your frightened song for when there is really something wrong!' Later, he saw a real wolf prowling about his flock. Alarmed, he leaped to his feet and sang out as loudly as he could, 'Wolf! Wolf!' But the villagers thought he was trying to fool them again, and so they didn't come.",
-          choices: []
-        }
-      ],
-      "The Ant and the Grasshopper": [
-        {
-          scene_id: 1,
-          text: "In a field one summer's day a grasshopper was hopping about, chirping and singing to its heart's content. An ant passed by, bearing along with great toil an ear of corn he was taking to the nest. 'Why not come and chat with me,' said the grasshopper, 'instead of toiling and moiling in that way?' 'I am helping to lay up food for the winter,' said the ant, 'and recommend you to do the same.'",
-          choices: [
-            { id: 1, text: "See what happens when winter comes" },
-            { id: 2, text: "Continue to learn the lesson" }
-          ]
-        },
-        {
-          scene_id: 2,
-          text: "'Why bother about winter?' said the grasshopper. 'We have got plenty of food at present.' But the ant went on its way and continued its toil. When the winter came the grasshopper found itself dying of hunger, while it saw the ants distributing, every day, corn and grain from the stores they had collected in the summer. Then the grasshopper knew that it was best to prepare for the days of necessity.",
-          choices: []
-        }
-      ]
-    };
-
-    return storyContent[story.title] || [
-      {
-        scene_id: 1,
-        text: "This is a wonderful story that teaches us important life lessons.",
-        choices: []
+  // ✅ NEW: Create real backend session
+  const createRealSession = async () => {
+    try {
+      const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+      
+      if (!token) {
+        console.log('No auth token found, using fallback stories');
+        loadFallbackStories();
+        return;
       }
-    ];
+
+      console.log('🔄 Creating session for story:', story.id);
+
+      // Create session via backend API
+      const response = await fetch('http://localhost:8000/api/sessions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ story_id: story.id })
+      });
+
+      if (response.ok) {
+        const sessionData = await response.json();
+        console.log('✅ Real session created:', sessionData);
+        setSession(sessionData);
+        
+        // Fetch story scenes and quiz from backend
+        await fetchStoryContent(story.id, token);
+      } else {
+        throw new Error(`Session creation failed: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('❌ Error creating session:', error);
+      setError('Using offline mode - backend connection failed');
+      loadFallbackStories();
+    }
   };
 
-  const makeChoice = (sceneId, choiceId) => {
-    if (!session) return;
+  // ✅ NEW: Fetch story content from backend
+  const fetchStoryContent = async (storyId, token) => {
+    try {
+      console.log('🔄 Fetching story content for:', storyId);
+      
+      const response = await fetch(`http://localhost:8000/api/stories/${storyId}/scenes`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
+      if (response.ok) {
+        const storyData = await response.json();
+        console.log('✅ Story content fetched from backend:', storyData);
+        
+        // Parse scenes and quiz (they come as JSON strings from backend)
+        const scenes = typeof storyData.scenes === 'string' ? JSON.parse(storyData.scenes) : storyData.scenes;
+        const quiz = typeof storyData.quiz === 'string' ? JSON.parse(storyData.quiz) : storyData.quiz;
+        
+        setStoryScenes(scenes || []);
+        setQuizQuestions(quiz || []);
+      } else {
+        throw new Error(`Story fetch failed: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching story:', error);
+      loadFallbackStories();
+    }
+  };
+
+  // ✅ Fallback to hardcoded data if backend fails
+  const loadFallbackStories = () => {
+    console.log('📚 Loading fallback story data');
+    const fallbackContent = {
+      "The Wise Owl and the Young Fox": {
+        scenes: [
+          {
+            scene_id: 1,
+            text: "In a deep forest lived an old owl named Oliver, known throughout the woodland for his wisdom. One sunny morning, a young fox named Felix approached Oliver's tree, feeling frustrated and impatient. The forest was bustling with activity as other animals went about their daily routines, but Felix felt lost and overwhelmed. He had been struggling to find enough food for the coming winter and was worried about his family's survival. The towering oak tree where Oliver perched seemed like his last hope for guidance and wisdom."
+          },
+          {
+            scene_id: 2,
+            text: "Oliver looked down at Felix with kind, understanding eyes. 'Young one,' he said softly, 'I can see you're troubled. What brings you to my tree today?' Felix took a deep breath and explained his problem: he couldn't find enough food for the coming winter and was worried about his family. His voice trembled with anxiety as he described his failed attempts to gather enough supplies. Oliver listened patiently, nodding thoughtfully as Felix shared his concerns about the harsh winter ahead and his fear of not being able to provide for his loved ones."
+          },
+          {
+            scene_id: 3,
+            text: "Oliver nodded thoughtfully and spoke with gentle authority. 'Patience and observation, young Felix. Watch how the squirrels prepare - they start early and store food in many different places throughout the forest. The secret is not to rush, but to be consistent and methodical in your approach.' Felix listened carefully, absorbing every word of wisdom. He thanked Oliver for his guidance and promised to follow the advice. Over the following weeks, Felix applied Oliver's teachings, observing the squirrels' methods and working steadily. By winter's arrival, his family had enough food stored safely away."
+          }
+        ],
+        quiz: [
+          {
+            question: "What was Felix's main problem?",
+            options: [
+              "He was lost in the forest",
+              "He couldn't find enough food for winter", 
+              "He was arguing with other animals",
+              "He was sick and needed help"
+            ],
+            correct: 1
+          },
+          {
+            question: "What advice did Oliver give to Felix?",
+            options: [
+              "To ask other animals for help",
+              "To be patient, observe squirrels, and be consistent",
+              "To move to a different forest",
+              "To give up and try something else"
+            ],
+            correct: 1
+          },
+          {
+            question: "How did Felix solve his problem?",
+            options: [
+              "He found a magic solution",
+              "Other animals helped him",
+              "He followed Oliver's advice and worked steadily",
+              "He moved away from the forest"
+            ],
+            correct: 2
+          },
+          {
+            question: "What animals did Oliver suggest Felix should observe?",
+            options: [
+              "Bears and deer",
+              "Squirrels",
+              "Birds and rabbits", 
+              "Other foxes"
+            ],
+            correct: 1
+          },
+          {
+            question: "What is the main lesson of this story?",
+            options: [
+              "Wisdom and patience lead to success",
+              "Food is hard to find",
+              "Winter is dangerous",
+              "Owls are very smart"
+            ],
+            correct: 0
+          }
+        ]
+      },
+      "Maya's First Day Challenge": {
+        scenes: [
+          {
+            scene_id: 1,
+            text: "Maya stood at the entrance of her new school, Lincoln Middle School, her heart pounding with nervous energy. She had moved to this town just last week, and today was her first day at the enormous-looking building. Students were chattering excitedly as they walked through the doors, their familiar voices echoing in the hallways. Maya clutched her new backpack straps tightly, feeling overwhelmed by the size of the school and the sea of unfamiliar faces. She took a deep breath, reminding herself that everyone was once new somewhere, and gathered her courage to step forward into this new chapter of her life."
+          },
+          {
+            scene_id: 2,
+            text: "Maya gathered her courage and walked through the front doors, her footsteps echoing in the bustling hallway. Students rushed past her, heading to their lockers and greeting friends they hadn't seen over the break. In a quiet corner near the library, she noticed a girl sitting alone, reading a thick book about astronomy and space exploration. The girl looked friendly but seemed shy and reserved, just like Maya felt. Maya recognized the book cover - it was about black holes and distant galaxies, topics that had always fascinated her. She hesitated for a moment, debating whether to approach the girl or find somewhere else to wait before classes began."
+          },
+          {
+            scene_id: 3,
+            text: "'Hi, I'm Maya. I love astronomy too!' she said, pointing to the book with genuine excitement. The girl looked up with a bright, surprised smile that immediately put Maya at ease. 'I'm Sarah! Are you new here? I'd love to show you around the school.' Sarah closed her book and stood up eagerly. By lunchtime, Maya and Sarah were chatting like old friends, sharing their favorite facts about planets and space missions. Maya realized that taking the first step to be friendly, despite her nervousness, had made all the difference. She had found not just a friend, but someone who shared her interests and made her feel welcomed in her new school."
+          }
+        ],
+        quiz: [
+          {
+            question: "How did Maya feel about starting at her new school?",
+            options: [
+              "Excited and confident",
+              "Nervous and anxious",
+              "Angry and frustrated", 
+              "Bored and uninterested"
+            ],
+            correct: 1
+          },
+          {
+            question: "What was Sarah reading about?",
+            options: [
+              "History and ancient civilizations",
+              "Astronomy and space exploration", 
+              "Mystery novels",
+              "Science fiction stories"
+            ],
+            correct: 1
+          },
+          {
+            question: "What helped Maya make her first friend?",
+            options: [
+              "A teacher introduced them",
+              "They were assigned as partners",
+              "She noticed their shared interest and introduced herself",
+              "Sarah approached Maya first"
+            ],
+            correct: 2
+          },
+          {
+            question: "Where did Maya first see Sarah?",
+            options: [
+              "In the cafeteria", 
+              "Near the library",
+              "In a classroom",
+              "Outside the school"
+            ],
+            correct: 1
+          },
+          {
+            question: "What lesson does Maya's story teach us?",
+            options: [
+              "New schools are always scary",
+              "It's better to wait for others to approach you",
+              "Taking initiative and being friendly can lead to great friendships", 
+              "Reading is more important than making friends"
+            ],
+            correct: 2
+          }
+        ]
+      },
+      "The Garden of Patience": {
+        scenes: [
+          {
+            scene_id: 1,
+            text: "Ten-year-old Jamie decided to plant a vegetable garden behind their house, dreaming of fresh tomatoes, carrots, and crisp lettuce. As they looked at the packet of seeds and the empty patch of soil in their backyard, Jamie realized this project would take much longer than initially expected. The soil looked hard and unpromising, and the seed packets showed beautiful, fully-grown vegetables that seemed impossible to achieve. Jamie's excitement was mixed with uncertainty about how to begin such an ambitious project. They had never grown anything before, but the idea of homegrown vegetables motivated them to start this challenging journey."
+          },
+          {
+            scene_id: 2,
+            text: "Jamie spent the first week preparing the soil, reading gardening books, and carefully planning when to plant each type of vegetable. They learned about spacing, watering schedules, and the importance of proper soil preparation. After planting the seeds with great care, Jamie checked the garden every single day, hoping to see signs of growth. Days passed, then a week, then two weeks, but nothing seemed to be happening above ground. The soil looked exactly the same as when they had planted the seeds. Jamie began to worry that they had done something wrong or that the seeds were defective, feeling frustrated by the lack of visible progress."
+          },
+          {
+            scene_id: 3,
+            text: "On the seventeenth day, Jamie noticed tiny green shoots pushing through the soil like small miracles emerging from the earth! Over the following weeks, Jamie watched in amazement as the plants grew stronger and taller each day. They continued to water, weed, and care for the garden with dedication and patience. Three months later, Jamie harvested their first homegrown vegetables - plump tomatoes, orange carrots, and fresh lettuce leaves. Standing in their thriving garden, Jamie felt an enormous sense of pride and accomplishment. They had learned that the most rewarding achievements require patience, consistent effort, and faith in the process, even when progress isn't immediately visible."
+          }
+        ],
+        quiz: [
+          {
+            question: "What was Jamie's goal?",
+            options: [
+              "To become a professional farmer",
+              "To grow their own vegetables",
+              "To win a gardening contest", 
+              "To help their neighbors with food"
+            ],
+            correct: 1
+          },
+          {
+            question: "How long did it take before Jamie saw the first signs of growth?",
+            options: [
+              "One week",
+              "Seventeen days", 
+              "One month",
+              "Three months"
+            ],
+            correct: 1
+          },
+          {
+            question: "What did Jamie do while waiting for the plants to grow?",
+            options: [
+              "Gave up and tried something else",
+              "Dug up the seeds to check them",
+              "Continued to water and care for the garden patiently",
+              "Planted new seeds every week"
+            ],
+            correct: 2
+          },
+          {
+            question: "How long did it take from planting to harvesting?",
+            options: [
+              "One month",
+              "Two months", 
+              "Three months",
+              "Six months"
+            ],
+            correct: 2
+          },
+          {
+            question: "What is the main lesson of Jamie's gardening experience?",
+            options: [
+              "Gardening is easy if you have good seeds",
+              "Patience and consistent effort lead to rewarding results",
+              "It's better to buy vegetables from the store", 
+              "Some plants grow faster than others"
+            ],
+            correct: 1
+          }
+        ]
+      }
+    };
+
+    const data = fallbackContent[story.title] || fallbackContent["The Wise Owl and the Young Fox"];
+    setStoryScenes(data.scenes);
+    setQuizQuestions(data.quiz);
+  };
+
+  // ✅ Handle scene continuation with REAL reading time tracking
+  const handleContinue = async () => {
     setLoading(true);
     
-    // Update session with choice
-    const updatedSession = {
-      ...session,
-      choices_made: [...(session.choices_made || []), { scene_id: sceneId, choice_id: choiceId }]
-    };
-
-    // Get next scene
-    const scenes = getStoryScenes(story);
-    const nextSceneIndex = scenes.findIndex(scene => scene.scene_id === sceneId) + 1;
+    // ✅ Calculate REAL scene reading time
+    const sceneReadingTime = Math.floor((Date.now() - sceneStartTime) / 1000);
+    setTotalSceneTime(prev => prev + sceneReadingTime);
     
-    setTimeout(() => { // Small delay for better UX
-      if (nextSceneIndex < scenes.length) {
-        setCurrentScene(scenes[nextSceneIndex]);
-        setSession(updatedSession);
-      } else {
-        // Story completed
-        updatedSession.is_completed = true;
-        setSession(updatedSession);
+    console.log(`📖 Scene ${currentSceneIndex + 1} reading time: ${sceneReadingTime} seconds`);
+    console.log(`📊 Total reading time so far: ${Math.floor((totalSceneTime + sceneReadingTime) / 60)} minutes`);
+    
+    if (session && session.id && typeof session.id === 'number') {
+      // Real session - call backend API
+      try {
+        const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+        
+        console.log('🔄 Completing scene:', currentSceneIndex, 'for session:', session.id);
+        
+        const response = await fetch(`http://localhost:8000/api/sessions/${session.id}/complete_scene`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            scene_index: currentSceneIndex,
+            reading_time_seconds: sceneReadingTime // ✅ REAL scene reading time
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('✅ Scene completed via backend:', result);
+          
+          if (result.quiz_ready) {
+            setShowQuiz(true);
+          } else {
+            setCurrentSceneIndex(currentSceneIndex + 1);
+            setSceneStartTime(Date.now()); // ✅ Start timing next scene
+          }
+        } else {
+          console.warn('⚠️ Backend scene completion failed, using fallback');
+          fallbackSceneProgression();
+        }
+      } catch (error) {
+        console.error('❌ Error completing scene via backend:', error);
+        fallbackSceneProgression();
       }
-      setLoading(false);
-    }, 500);
+    } else {
+      // No real session, use fallback
+      fallbackSceneProgression();
+    }
+    
+    setLoading(false);
   };
 
-  if (!currentScene) {
+  // ✅ Fallback scene progression
+  const fallbackSceneProgression = () => {
+    if (currentSceneIndex < storyScenes.length - 1) {
+      setCurrentSceneIndex(currentSceneIndex + 1);
+      setSceneStartTime(Date.now()); // ✅ Start timing next scene
+    } else {
+      setShowQuiz(true);
+    }
+  };
+
+  const handleQuizAnswer = (questionIndex, answerIndex) => {
+    setQuizAnswers(prev => ({
+      ...prev,
+      [questionIndex]: answerIndex
+    }));
+  };
+
+  // ✅ Handle quiz submission with REAL total reading time
+  const handleQuizSubmit = async () => {
+    // ✅ Calculate REAL total reading time for the entire story + quiz
+    const quizStartTime = Date.now() - sceneStartTime; // Time spent on current quiz
+    const totalReadingTimeSeconds = Math.floor((Date.now() - totalStoryStartTime) / 1000);
+    const totalMinutes = Math.floor(totalReadingTimeSeconds / 60);
+    
+    console.log(`📊 REAL TOTAL READING TIME: ${totalReadingTimeSeconds} seconds (${totalMinutes} minutes)`);
+    console.log(`📖 Story started at: ${new Date(totalStoryStartTime).toLocaleTimeString()}`);
+    console.log(`🏁 Story completed at: ${new Date().toLocaleTimeString()}`);
+
+    if (session && session.id && typeof session.id === 'number') {
+      // Real session - submit to backend
+      try {
+        const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
+        
+        console.log('🔄 Submitting quiz to backend for session:', session.id);
+        
+        const response = await fetch(`http://localhost:8000/api/sessions/${session.id}/submit_quiz`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            quiz_answers: quizAnswers,
+            total_quiz_time_seconds: totalReadingTimeSeconds // ✅ REAL TOTAL TIME instead of dummy 180
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log('✅ Quiz submitted to backend:', result);
+          setQuizScore(Math.round(result.score));
+          
+          // ✅ FIX: Call completion callback with updated session data
+          const completedSession = {
+            ...session,
+            is_completed: true,
+            quiz_score: result.score,
+            correct_answers: result.correct_answers,
+            total_questions: result.total_questions,
+            total_reading_time: totalReadingTimeSeconds // ✅ Include real reading time
+          };
+
+          // Update session with real data
+          setSession(completedSession);
+
+          // Call completion callback to trigger App.js refresh
+          if (onComplete) {
+            console.log('🎯 Calling onComplete to trigger dashboard refresh');
+            onComplete(completedSession);
+          }
+        } else {
+          console.warn('⚠️ Backend quiz submission failed, using fallback');
+          fallbackQuizCalculation(totalReadingTimeSeconds);
+        }
+      } catch (error) {
+        console.error('❌ Error submitting quiz to backend:', error);
+        fallbackQuizCalculation(totalReadingTimeSeconds);
+      }
+    } else {
+      // No real session, use fallback calculation
+      fallbackQuizCalculation(totalReadingTimeSeconds);
+    }
+  };
+
+  // ✅ Fallback quiz calculation with real reading time
+  const fallbackQuizCalculation = (readingTime) => {
+    let correct = 0;
+    quizQuestions.forEach((question, index) => {
+      if (quizAnswers[index] === question.correct) {
+        correct++;
+      }
+    });
+    
+    const score = Math.round((correct / quizQuestions.length) * 100);
+    setQuizScore(score);
+    
+    const completedSession = { 
+      ...session, 
+      is_completed: true, 
+      quiz_score: score,
+      correct_answers: correct,
+      total_questions: quizQuestions.length,
+      total_reading_time: readingTime // ✅ Include real reading time
+    };
+    
+    setSession(completedSession);
+
+    // Call completion callback for fallback too
+    if (onComplete) {
+      console.log('🎯 Calling onComplete (fallback) to trigger dashboard refresh');
+      onComplete(completedSession);
+    }
+  };
+
+  const currentScene = storyScenes[currentSceneIndex];
+  const totalScenes = storyScenes.length || 3;
+
+  if (!currentScene && !showQuiz && storyScenes.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '50px' }}>
         <h2>📖 Loading story...</h2>
+        {error && <p style={{ color: '#ef4444' }}>{error}</p>}
       </div>
     );
   }
@@ -148,11 +516,10 @@ const StoryReader = ({ story, onBack, onComplete }) => {
             border: 'none',
             padding: '10px 20px',
             borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '14px'
+            cursor: 'pointer'
           }}
         >
-          ← Back to Stories
+          ← Back
         </button>
         
         <div style={{ textAlign: 'center' }}>
@@ -160,7 +527,11 @@ const StoryReader = ({ story, onBack, onComplete }) => {
             {story.title}
           </h1>
           <p style={{ margin: 0, color: '#6b7280' }}>
-            Scene {currentScene?.scene_id} • {session?.choices_made?.length || 0} choices made
+            {showQuiz ? '🧠 Quiz Time!' : `📖 Scene ${currentSceneIndex + 1} of ${totalScenes}`}
+          </p>
+          {/* ✅ Show real-time reading progress */}
+          <p style={{ margin: '5px 0 0 0', color: '#10b981', fontSize: '12px' }}>
+            Reading time: {Math.floor((Date.now() - totalStoryStartTime) / 60000)}m {Math.floor(((Date.now() - totalStoryStartTime) % 60000) / 1000)}s
           </p>
         </div>
         
@@ -175,175 +546,137 @@ const StoryReader = ({ story, onBack, onComplete }) => {
         boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
         marginBottom: '30px'
       }}>
-        <div style={{
-          fontSize: '18px',
-          lineHeight: '1.8',
-          color: '#374151',
-          marginBottom: '30px',
-          fontFamily: 'Georgia, serif'
-        }}>
-          {currentScene?.text}
-        </div>
-
-        {/* Choices */}
-        {currentScene?.choices && currentScene.choices.length > 0 && (
-          <div>
-            <h3 style={{
-              color: '#1f2937',
-              marginBottom: '20px',
-              fontSize: '1.3rem'
-            }}>
-              What should happen next?
-            </h3>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              {currentScene.choices.map((choice, index) => (
-                <button
-                  key={choice.id}
-                  onClick={() => makeChoice(currentScene.scene_id, choice.id)}
-                  disabled={loading}
-                  style={{
-                    background: loading ? '#9ca3af' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-                    color: 'white',
-                    border: 'none',
-                    padding: '20px',
-                    borderRadius: '12px',
-                    fontSize: '16px',
-                    fontWeight: '500',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    textAlign: 'left',
-                    transition: 'all 0.2s',
-                    boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)'
-                  }}
-                  onMouseOver={(e) => !loading && (e.target.style.transform = 'translateY(-2px)')}
-                  onMouseOut={(e) => !loading && (e.target.style.transform = 'translateY(0)')}
-                >
-                  <span style={{ fontWeight: '700', marginRight: '10px' }}>
-                    {String.fromCharCode(65 + index)}.
-                  </span>
-                  {choice.text}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Story completed */}
-        {(!currentScene?.choices || currentScene.choices.length === 0) && (
-          <div style={{
-            textAlign: 'center',
-            padding: '40px',
-            background: 'linear-gradient(135deg, #f0fdf4, #dcfce7)',
-            borderRadius: '16px',
-            border: '3px solid #22c55e',
-            boxShadow: '0 10px 25px rgba(34, 197, 94, 0.2)'
-          }}>
+        {!showQuiz ? (
+          <>
             <div style={{
-              fontSize: '4rem',
-              marginBottom: '20px'
+              fontSize: '18px',
+              lineHeight: '1.8',
+              color: '#374151',
+              marginBottom: '40px',
+              fontFamily: 'Georgia, serif'
             }}>
-              🎉
+              {currentScene?.text}
             </div>
-            
-            <h3 style={{ 
-              color: '#059669', 
-              fontSize: '2.2rem', 
-              margin: '0 0 15px 0',
-              fontWeight: 'bold'
-            }}>
-              Story Complete!
-            </h3>
-            
-            <p style={{ 
-              color: '#374151', 
-              fontSize: '18px', 
-              margin: '0 0 10px 0',
-              fontWeight: '500'
-            }}>
-              You've finished "{story.title}" and made {session?.choices_made?.length} meaningful choices!
-            </p>
-            
-            <p style={{ 
-              color: '#6b7280', 
-              fontSize: '16px', 
-              margin: '0 0 30px 0',
-              lineHeight: '1.5'
-            }}>
-              Now test your comprehension and get personalized AI feedback with our assessment system
-            </p>
-            
-            <div style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '15px',
-              alignItems: 'center'
-            }}>
+
+            <div style={{ textAlign: 'center' }}>
               <button
-                onClick={() => onComplete && onComplete(session)}
+                onClick={handleContinue}
+                disabled={loading}
                 style={{
-                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  background: loading ? '#9ca3af' : 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
                   color: 'white',
                   border: 'none',
-                  padding: '18px 40px',
-                  borderRadius: '12px',
-                  fontSize: '18px',
-                  fontWeight: '700',
-                  cursor: 'pointer',
-                  boxShadow: '0 8px 25px rgba(16, 185, 129, 0.3)',
-                  transition: 'all 0.3s ease',
-                  minWidth: '250px'
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.transform = 'translateY(-3px)';
-                  e.target.style.boxShadow = '0 12px 35px rgba(16, 185, 129, 0.4)';
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.transform = 'translateY(0)';
-                  e.target.style.boxShadow = '0 8px 25px rgba(16, 185, 129, 0.3)';
-                }}
-              >
-                🧠 Take Assessment
-              </button>
-              
-              <button
-                onClick={onBack}
-                style={{
-                  background: 'transparent',
-                  color: '#6b7280',
-                  border: '2px solid #d1d5db',
-                  padding: '12px 30px',
+                  padding: '15px 30px',
                   borderRadius: '8px',
                   fontSize: '16px',
                   fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseOver={(e) => {
-                  e.target.style.borderColor = '#9ca3af';
-                  e.target.style.color = '#4b5563';
-                }}
-                onMouseOut={(e) => {
-                  e.target.style.borderColor = '#d1d5db';
-                  e.target.style.color = '#6b7280';
+                  cursor: loading ? 'not-allowed' : 'pointer'
                 }}
               >
-                📚 Choose Another Story
+                {loading ? 'Processing...' :
+                 currentSceneIndex < totalScenes - 1 ? '📖 Next Scene' : '🧠 Take Quiz'}
               </button>
             </div>
-          </div>
+          </>
+        ) : (
+          <>
+            {quizScore === null ? (
+              <>
+                <h2 style={{ textAlign: 'center', marginBottom: '30px' }}>
+                  📝 Story Quiz
+                </h2>
+                
+                {quizQuestions.map((question, qIndex) => (
+                  <div key={qIndex} style={{ marginBottom: '25px' }}>
+                    <h3 style={{ marginBottom: '15px' }}>
+                      {qIndex + 1}. {question.question}
+                    </h3>
+                    {question.options.map((option, oIndex) => (
+                      <button
+                        key={oIndex}
+                        onClick={() => handleQuizAnswer(qIndex, oIndex)}
+                        style={{
+                          display: 'block',
+                          width: '100%',
+                          background: quizAnswers[qIndex] === oIndex ? '#3b82f6' : '#f3f4f6',
+                          color: quizAnswers[qIndex] === oIndex ? 'white' : '#374151',
+                          border: '1px solid #d1d5db',
+                          padding: '12px',
+                          borderRadius: '6px',
+                          marginBottom: '8px',
+                          textAlign: 'left',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {String.fromCharCode(65 + oIndex)}. {option}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+                
+                <div style={{ textAlign: 'center', marginTop: '30px' }}>
+                  <button
+                    onClick={handleQuizSubmit}
+                    disabled={Object.keys(quizAnswers).length !== quizQuestions.length}
+                    style={{
+                      background: Object.keys(quizAnswers).length === quizQuestions.length 
+                        ? '#10b981' : '#9ca3af',
+                      color: 'white',
+                      border: 'none',
+                      padding: '15px 30px',
+                      borderRadius: '8px',
+                      fontSize: '16px',
+                      cursor: Object.keys(quizAnswers).length === quizQuestions.length 
+                        ? 'pointer' : 'not-allowed'
+                    }}
+                  >
+                    📊 Submit Quiz
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div style={{ textAlign: 'center' }}>
+                <h2 style={{ color: '#10b981', fontSize: '2rem', marginBottom: '20px' }}>
+                  Quiz Complete! 🎉
+                </h2>
+                <p style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '20px' }}>
+                  Your Score: {quizScore}%
+                </p>
+                <p style={{ marginBottom: '20px', color: '#6b7280' }}>
+                  {session?.correct_answers || 0} out of {session?.total_questions || quizQuestions.length} questions correct
+                </p>
+                <p style={{ marginBottom: '20px', color: '#059669', fontSize: '14px' }}>
+                  ⏱️ Total reading time: {Math.floor((Date.now() - totalStoryStartTime) / 60000)} minutes
+                </p>
+                <p style={{ marginBottom: '30px' }}>
+                  {quizScore >= 80 ? 'Excellent! You understood the story very well! 🌟' :
+                   quizScore >= 60 ? 'Good job! You got most of it right! 👍' :
+                   'Keep practicing! Try reading the story again! 📚'}
+                </p>
+                
+                <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+                  <button
+                    onClick={onBack}
+                    style={{
+                      background: '#3b82f6',
+                      color: 'white',
+                      border: 'none',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    📚 Try Another Story
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
-
-      <style jsx>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 };
 
 export default StoryReader;
-
 
